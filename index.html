@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pengar & Karaktärer</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding: 10px 0;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 20px;
+    }
+    .panel {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    }
+    h2, h3 {
+      margin-top: 0;
+    }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .summary-box {
+      background: #1f2937;
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .summary-box strong {
+      display: block;
+      font-size: 24px;
+      margin-top: 8px;
+    }
+    .green { color: #4ade80; }
+    .red { color: #f87171; }
+    .blue { color: #60a5fa; }
+
+    form {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #374151;
+      background: #0b1220;
+      color: white;
+      font-size: 1rem;
+    }
+    button {
+      background: linear-gradient(135deg, #38bdf8, #8b5cf6);
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .list {
+      margin-top: 20px;
+      display: grid;
+      gap: 10px;
+    }
+    .entry {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      background: #1f2937;
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .entry .type {
+      font-weight: bold;
+      color: #93c5fd;
+    }
+    .entry .money.income {
+      color: #4ade80;
+    }
+    .entry .money.expense {
+      color: #f87171;
+    }
+    .character-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .character-card {
+      background: #1f2937;
+      border: 1px solid #374151;
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .character-card button {
+      margin-top: 10px;
+      background: #16a34a;
+    }
+    .badge {
+      display: inline-block;
+      background: #0ea5e9;
+      color: white;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    @media (max-width: 800px) {
+      .grid, .summary {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <h1>Pengar & Karaktärer</h1>
+      <div class="badge" id="activeCharacterBadge">Aktiv karaktär: Ingen</div>
+    </div>
+
+    <div class="summary">
+      <div class="summary-box">
+        <span>Inkomst</span>
+        <strong class="green" id="incomeTotal">0 kr</strong>
+      </div>
+      <div class="summary-box">
+        <span>Utgifter</span>
+        <strong class="red" id="expenseTotal">0 kr</strong>
+      </div>
+      <div class="summary-box">
+        <span>Saldo</span>
+        <strong class="blue" id="balanceTotal">0 kr</strong>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="panel">
+        <h2>Hantera ekonomi</h2>
+
+        <form id="financeForm">
+          <select id="financeType">
+            <option value="income">Inkomst</option>
+            <option value="expense">Utgift</option>
+          </select>
+          <input type="text" id="financeName" placeholder="Titel ex: Lön, Hyra..." required />
+          <input type="number" id="financeAmount" placeholder="Belopp" required />
+          <button type="submit">Lägg till</button>
+        </form>
+
+        <div class="list" id="financeList"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Karaktärer</h2>
+
+        <form id="characterForm">
+          <input type="text" id="characterName" placeholder="Namn på karaktär" required />
+          <button type="submit">Skapa karaktär</button>
+        </form>
+
+        <div class="character-list" id="characterList"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const financeList = document.getElementById("financeList");
+    const characterList = document.getElementById("characterList");
+    const activeCharacterBadge = document.getElementById("activeCharacterBadge");
+
+    const state = {
+      activeCharacter: null,
+      finances: [],
+      characters: [
+        { id: crypto.randomUUID(), name: "Karaktär 1" },
+        { id: crypto.randomUUID(), name: "Karaktär 2" }
+      ]
+    };
+
+    function updateSummary() {
+      const income = state.finances
+        .filter(item => item.type === "income")
+        .reduce((sum, item) => sum + Number(item.amount), 0);
+
+      const expense = state.finances
+        .filter(item => item.type === "expense")
+        .reduce((sum, item) => sum + Number(item.amount), 0);
+
+      const balance = income - expense;
+
+      document.getElementById("incomeTotal").textContent = formatMoney(income);
+      document.getElementById("expenseTotal").textContent = formatMoney(expense);
+      document.getElementById("balanceTotal").textContent = formatMoney(balance);
+    }
+
+    function formatMoney(value) {
+      return new Intl.NumberFormat("sv-SE", {
+        style: "currency",
+        currency: "SEK",
+        maximumFractionDigits: 0
+      }).format(value);
+    }
+
+    function renderCharacters() {
+      characterList.innerHTML = "";
+      state.characters.forEach(character => {
+        const card = document.createElement("div");
+        card.className = "character-card";
+
+        const isActive = state.activeCharacter && state.activeCharacter.id === character.id;
+
+        card.innerHTML = `
+          <div><strong>${character.name}</strong></div>
+          <div style="color:#94a3b8; margin-top:6px;">
+            ${isActive ? "Aktiv just nu" : "Klicka för att välja"}
+          </div>
+          <button type="button">${isActive ? "Vald" : "Välj karaktär"}</button>
+        `;
+
+        card.querySelector("button").addEventListener("click", () => {
+          state.activeCharacter = character;
+          activeCharacterBadge.textContent = "Aktiv karaktär: " + character.name;
+          renderCharacters();
+        });
+
+        characterList.appendChild(card);
+      });
+
+      if (!state.activeCharacter && state.characters.length > 0) {
+        state.activeCharacter = state.characters[0];
+        activeCharacterBadge.textContent = "Aktiv karaktär: " + state.activeCharacter.name;
+      }
+    }
+
+    function renderFinances() {
+      financeList.innerHTML = "";
+      state.finances.forEach(item => {
+        const entry = document.createElement("div");
+        entry.className = "entry";
+
+        const money = document.createElement("div");
+        money.className = `money ${item.type === "income" ? "income" : "expense"}`;
+        money.textContent = `${item.type === "income" ? "+" : "-"} ${formatMoney(item.amount)}`;
+
+        const info = document.createElement("div");
+        info.innerHTML = `
+          <div class="type">${item.type === "income" ? "Inkomst" : "Utgift"}</div>
+          <div>${item.name}</div>
+        `;
+
+        entry.appendChild(info);
+        entry.appendChild(money);
+        financeList.appendChild(entry);
+      });
+
+      updateSummary();
+    }
+
+    document.getElementById("financeForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const type = document.getElementById("financeType").value;
+      const name = document.getElementById("financeName").value.trim();
+      const amount = Number(document.getElementById("financeAmount").value);
+
+      if (!name || !amount || amount <= 0) return;
+
+      state.finances.push({
+        id: crypto.randomUUID(),
+        type,
+        name,
+        amount
+      });
+
+      document.getElementById("financeForm").reset();
+      renderFinances();
+    });
+
+    document.getElementById("characterForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = document.getElementById("characterName").value.trim();
+      if (!name) return;
+
+      const newCharacter = {
+        id: crypto.randomUUID(),
+        name
+      };
+
+      state.characters.push(newCharacter);
+      state.activeCharacter = newCharacter;
+      activeCharacterBadge.textContent = "Aktiv karaktär: " + newCharacter.name;
+      document.getElementById("characterForm").reset();
+      renderCharacters();
+    });
+
+    renderCharacters();
+    renderFinances();
+  </script>
+</body>
+</html>
